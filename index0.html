@@ -1,0 +1,315 @@
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Smart Routes — Guadalajara</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Librería para generar Código QR -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  
+  <link rel="manifest" href="./manifest.json">
+
+  <style>
+    :root {
+      --accent:#0f172a;
+      --bg:#f8fafc;
+      --muted:#6b7280;
+    }
+    body,html { margin:0; height:100%; font-family:Inter,Arial; background:var(--bg); }
+    .app { display:flex; flex-direction:column; height:100vh; }
+    header { background:white; padding:12px 16px; display:flex; align-items:center; box-shadow:0 1px 4px rgba(15,23,42,0.1); }
+    header h1 { margin:0; font-size:1.2rem; color:var(--accent); }
+    .container { display:flex; flex:1; min-height:0; }
+    aside { width:320px; padding:14px; background:white; border-right:1px solid #e6edf3; overflow:auto; display: flex; flex-direction: column; }
+    main { flex:1; }
+    #map { height:100%; }
+    label { display:block; font-size:0.85rem; color:var(--muted); margin-top:10px; }
+    input { width:100%; padding:8px; border:1px solid #e6edf3; border-radius:8px; }
+    .btn { background:var(--accent); color:white; border:none; padding:9px 12px; border-radius:8px; margin-top:10px; cursor:pointer; font-weight:600; }
+    .btn-secondary { background:#e2e8f0; color:var(--accent); border:none; padding:9px 12px; border-radius:8px; margin-top:10px; cursor:pointer; font-weight:600; }
+    .suggestions { background:white; border:1px solid #e6edf3; border-radius:8px; margin-top:4px; position:absolute; z-index:1000; width:calc(100% - 28px); box-shadow:0 2px 6px rgba(0,0,0,0.05); }
+    .suggestions div { padding:8px; cursor:pointer; }
+    .suggestions div:hover { background:#f1f5f9; }
+    .status { margin-top:12px; color:var(--muted); font-size:0.9rem; }
+    
+    /* Promesa de Valor */
+    .value-proposition {
+        margin-top: 20px;
+        padding: 12px;
+        background-color: #e0f2fe; /* Color azul claro sutil */
+        border: 1px solid #a5f3fc;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        color: #0c4a6e;
+        text-align: center;
+        font-weight: 500;
+        line-height: 1.4;
+    }
+
+    /* Estilos del Modal QR */
+    .qr-modal {
+        display: none; /* Oculto por defecto */
+        position: fixed;
+        z-index: 2000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.6);
+        justify-content: center;
+        align-items: center;
+    }
+    .qr-content {
+        background-color: #fefefe;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        max-width: 300px;
+        text-align: center;
+    }
+    .qr-content h3 {
+        margin-top: 0;
+        color: var(--accent);
+    }
+    #qrcodeCanvas {
+        margin: 20px auto;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 10px;
+    }
+    .close-btn {
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header><h1>Smart Routes</h1></header>
+    <div class="container">
+      <aside>
+        <label>Origen</label>
+        <div style="position:relative">
+          <input id="origin" type="text" placeholder="Ej: CUCEA, Universidad" autocomplete="off"/>
+          <div id="originList" class="suggestions" style="display:none;"></div>
+        </div>
+
+        <label>Destino</label>
+        <div style="position:relative">
+          <input id="destination" type="text" placeholder="Ej: Plaza del Sol" autocomplete="off"/>
+          <div id="destList" class="suggestions" style="display:none;"></div>
+        </div>
+
+        <button id="findBtn" class="btn">Buscar ruta</button>
+        <div class="status" id="status">Estado: listo</div>
+        
+        <!-- PROMESA DE VALOR AGREGADA AQUÍ -->
+        <div class="value-proposition">
+            Rutas rápidas y precisas optimizadas para la zona metropolitana de Guadalajara.
+        </div>
+        
+        <!-- Botón para el QR -->
+        <button id="qrBtn" class="btn-secondary">Compartir con Código QR</button>
+      </aside>
+
+      <main><div id="map"></div></main>
+    </div>
+  </div>
+
+  <!-- Modal del Código QR -->
+  <div id="qrModal" class="qr-modal">
+      <div class="qr-content">
+          <h3>Escanea para usar la App</h3>
+          <div id="qrcodeCanvas"></div>
+          <p style="font-size: 0.8rem; color: var(--muted);">El código apunta a tu URL publicada.</p>
+          <button id="closeQrBtn" class="close-btn">Cerrar</button>
+      </div>
+  </div>
+
+<script>
+  // Inicialización del Mapa
+  const GUADALAJARA = { lat: 20.6736, lng: -103.344 };
+  const map = L.map('map').setView([GUADALAJARA.lat, GUADALAJARA.lng], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19,
+    attribution:'© OpenStreetMap'
+  }).addTo(map);
+
+  let routeLayer, origin, dest;
+
+  const el = id => document.getElementById(id);
+  const originInput = el('origin'), destInput = el('destination');
+  const originList = el('originList'), destList = el('destList');
+  const statusEl = el('status');
+  const qrBtn = el('qrBtn');
+  const qrModal = el('qrModal');
+  const closeQrBtn = el('closeQrBtn');
+  const qrcodeCanvas = el('qrcodeCanvas');
+
+  function setStatus(t){ statusEl.textContent = 'Estado: ' + t; }
+
+  // Función de búsqueda de sugerencias usando Nominatim
+  async function fetchSuggestions(q, listEl){
+    if (q.length < 3) { listEl.style.display='none'; return; }
+    // Consulta restringida a Guadalajara para mayor precisión
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q+', Guadalajara, Mexico')}&addressdetails=1&limit=5`;
+    
+    try {
+        const resp = await fetch(url, { headers:{'Accept-Language':'es'} });
+        if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
+        const data = await resp.json();
+        
+        listEl.innerHTML = '';
+        data.forEach(place => {
+          const div = document.createElement('div');
+          div.textContent = place.display_name;
+          div.onclick = () => {
+            listEl.style.display='none';
+            if (listEl===originList){ 
+              originInput.value = place.display_name; 
+              origin = {lat:parseFloat(place.lat), lon:parseFloat(place.lon)};
+            } else {
+              destInput.value = place.display_name; 
+              dest = {lat:parseFloat(place.lat), lon:parseFloat(place.lon)};
+            }
+          };
+          listEl.appendChild(div);
+        });
+        listEl.style.display = data.length ? 'block' : 'none';
+    } catch (error) {
+        console.error("Error al obtener sugerencias:", error);
+        setStatus('Error de conexión al buscar sugerencias.');
+    }
+  }
+
+  // Event Listeners para las sugerencias de autocompletado
+  originInput.addEventListener('input', ()=>fetchSuggestions(originInput.value, originList));
+  destInput.addEventListener('input', ()=>fetchSuggestions(destInput.value, destList));
+
+  // Función para obtener la ruta usando OSRM
+  async function getRoute(a,b){
+    const coords = `${a.lon},${a.lat};${b.lon},${b.lat}`;
+    const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+    
+    try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
+        const j = await r.json();
+        if (j.routes && j.routes.length > 0) {
+            return j.routes[0];
+        } else {
+            setStatus('No se encontró una ruta entre los puntos.');
+            return null;
+        }
+    } catch (error) {
+        console.error("Error al calcular la ruta:", error);
+        setStatus('Error al calcular la ruta. Inténtalo de nuevo.');
+        return null;
+    }
+  }
+
+  // Event Listener para el botón de búsqueda
+  el('findBtn').addEventListener('click', async ()=>{
+    if(!origin || !dest){ setStatus('Selecciona origen y destino'); return; }
+    setStatus('Calculando ruta...');
+    
+    const route = await getRoute(origin,dest);
+    
+    if (route) {
+        // Eliminar ruta anterior y dibujar la nueva
+        if(routeLayer) routeLayer.remove();
+        routeLayer = L.geoJSON(route.geometry,{style:{color:'#2563eb',weight:6}}).addTo(map);
+        map.fitBounds(routeLayer.getBounds().pad(0.2));
+        
+        // Mostrar resultados
+        const km = (route.distance/1000).toFixed(2);
+        const min = Math.round(route.duration/60);
+        setStatus(`Ruta lista: ${km} km · ${min} min aprox.`);
+    }
+  });
+
+  // --- Lógica del Código QR ---
+
+  // La URL de tu aplicación publicada en GitHub Pages
+  // Nota: Asegúrate de que esta URL sea la correcta si cambias el nombre del repositorio.
+  const appUrl = "https://renato121najera-tech.github.io/SmartRoutesApp/"; 
+
+  let qrCode;
+
+  function generateQrCode() {
+    // Si ya existe un QR, lo borramos para regenerarlo
+    qrcodeCanvas.innerHTML = ''; 
+    
+    // Generamos el nuevo QR.
+    qrCode = new QRCode(qrcodeCanvas, {
+        text: appUrl,
+        width: 256,
+        height: 256,
+        colorDark : "#0f172a",
+        colorLight : "#fefefe",
+        correctLevel : QRCode.CorrectLevel.H
+    });
+  }
+
+  // Mostrar el modal y generar el QR
+  qrBtn.addEventListener('click', () => {
+      qrModal.style.display = 'flex'; // Usamos flex para centrar el contenido
+      // Generamos el QR cuando el modal se muestra
+      generateQrCode(); 
+  });
+
+  // Cerrar el modal
+  closeQrBtn.addEventListener('click', () => {
+      qrModal.style.display = 'none';
+  });
+
+  // Cerrar el modal haciendo clic fuera de la caja de contenido
+  qrModal.addEventListener('click', (e) => {
+      if (e.target === qrModal) {
+          qrModal.style.display = 'none';
+      }
+  });
+
+
+  // --- Registro del Service Worker para PWA ---
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      // Se registra 'sw.js' sin './' para mayor compatibilidad (corrige el error de protocolo)
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        console.log('Service Worker registrado con éxito:', reg.scope);
+      }).catch(err => {
+        console.error('Fallo el registro del Service Worker:', err);
+      });
+    });
+  }
+</script>
+</body>
+</html>
+{
+  "name": "Smart Routes - Guadalajara",
+  "short_name": "Routes GDL",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/854/854878.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "description": "Sistema de rutas optimizadas para el área metropolitana de Guadalajara.",
+  "orientation": "portrait"
+}
