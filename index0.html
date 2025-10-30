@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Librería para generar Código QR -->
+  <!-- Librería para generar Código QR (Corregida) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   
   <link rel="manifest" href="./manifest.json">
@@ -30,6 +30,7 @@
     label { display:block; font-size:0.85rem; color:var(--muted); margin-top:10px; }
     input { width:100%; padding:8px; border:1px solid #e6edf3; border-radius:8px; }
     .btn { background:var(--accent); color:white; border:none; padding:9px 12px; border-radius:8px; margin-top:10px; cursor:pointer; font-weight:600; }
+    /* Estilo del botón QR */
     .btn-secondary { background:#e2e8f0; color:var(--accent); border:none; padding:9px 12px; border-radius:8px; margin-top:10px; cursor:pointer; font-weight:600; }
     .suggestions { background:white; border:1px solid #e6edf3; border-radius:8px; margin-top:4px; position:absolute; z-index:1000; width:calc(100% - 28px); box-shadow:0 2px 6px rgba(0,0,0,0.05); }
     .suggestions div { padding:8px; cursor:pointer; }
@@ -114,12 +115,12 @@
         <button id="findBtn" class="btn">Buscar ruta</button>
         <div class="status" id="status">Estado: listo</div>
         
-        <!-- PROMESA DE VALOR AGREGADA AQUÍ -->
+        <!-- PROMESA DE VALOR AGREGADA -->
         <div class="value-proposition">
             Rutas rápidas y precisas optimizadas para la zona metropolitana de Guadalajara.
         </div>
         
-        <!-- Botón para el QR -->
+        <!-- Botón para el QR AGREGADO -->
         <button id="qrBtn" class="btn-secondary">Compartir con Código QR</button>
       </aside>
 
@@ -127,7 +128,7 @@
     </div>
   </div>
 
-  <!-- Modal del Código QR -->
+  <!-- Modal del Código QR AGREGADO -->
   <div id="qrModal" class="qr-modal">
       <div class="qr-content">
           <h3>Escanea para usar la App</h3>
@@ -152,10 +153,10 @@
   const originInput = el('origin'), destInput = el('destination');
   const originList = el('originList'), destList = el('destList');
   const statusEl = el('status');
-  const qrBtn = el('qrBtn');
-  const qrModal = el('qrModal');
-  const closeQrBtn = el('closeQrBtn');
-  const qrcodeCanvas = el('qrcodeCanvas');
+  const qrBtn = el('qrBtn'); // Elemento QR
+  const qrModal = el('qrModal'); // Elemento QR
+  const closeQrBtn = el('closeQrBtn'); // Elemento QR
+  const qrcodeCanvas = el('qrcodeCanvas'); // Elemento QR
 
   function setStatus(t){ statusEl.textContent = 'Estado: ' + t; }
 
@@ -239,10 +240,9 @@
     }
   });
 
-  // --- Lógica del Código QR ---
+  // --- Lógica del Código QR (Añadida) ---
 
   // La URL de tu aplicación publicada en GitHub Pages
-  // Nota: Asegúrate de que esta URL sea la correcta si cambias el nombre del repositorio.
   const appUrl = "https://renato121najera-tech.github.io/SmartRoutesApp/"; 
 
   let qrCode;
@@ -282,7 +282,7 @@
   });
 
 
-  // --- Registro del Service Worker para PWA ---
+  // --- Registro del Service Worker para PWA (Corregido) ---
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       // Se registra 'sw.js' sin './' para mayor compatibilidad (corrige el error de protocolo)
@@ -295,21 +295,3 @@
   }
 </script>
 </body>
-</html>
-{
-  "name": "Smart Routes - Guadalajara",
-  "short_name": "Routes GDL",
-  "start_url": "index.html",
-  "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
-  "icons": [
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/854/854878.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ],
-  "description": "Sistema de rutas optimizadas para el área metropolitana de Guadalajara.",
-  "orientation": "portrait"
-}
